@@ -7,6 +7,7 @@ import grantXP from "./Utilities/grantXP";
 import { TeleBot } from "./telegrambot/TelegramBot";
 import { server } from "./api/api";
 import roleSync from "./Utilities/roleSync";
+import generateCode from "./Utilities/generateCode";
 
 export const client = new Client({ intents: [ GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
@@ -25,7 +26,7 @@ export const cluster = new cassandra.Client({
 
 cluster.connect();
 
-//if(process.env.TELEGRAM_TOKEN) { var telegrambot = new TeleBot(process.env.TELEGRAM_TOKEN); telegrambot.sendAsWebhook(-1003301284161_1); };
+// if(process.env.TELEGRAM_TOKEN) { var telegrambot = new TeleBot(process.env.TELEGRAM_TOKEN); telegrambot.sendAsWebhook(-1003301284161_1); };
 
 //
 export const path = __dirname + '/../assets'
@@ -134,8 +135,12 @@ client.on('messageCreate', async message => {
         message.channel.send(`<@${user}> have ${res.shame_points} shame points`);
     }
 
+    if(args[0] == '!generateCode') {
+        message.channel.send(generateCode(message.author.username))
+    }
+
     if(args[0] == '!link') {
-        let code = Math.floor(Math.random() * 99999);
+        let code = ''
         if(message.guild) return message.channel.send('Please send me a dm using this formate `!link <lunar anime account username>`');
         if(!args[1]) return message.channel.send('Please add a username or your code');
         const doesUserExist = (await cluster.execute(`SELECT * FROM lunarbot.accountlinks WHERE snowflakeid=${message.author.id} ALLOW FILTERING`)).rows;
@@ -281,20 +286,20 @@ async function xpGrantingFinal(message :Message, userInfo :cassandra.types.Row, 
         iconURL: client.user?.displayAvatarURL()
     })
     .setDescription(
-`╭─ ✦ **Experience Gained**
-│
-│ <a:65270roseblooming:1369250407225884672> **${xpGive.username}** earned **+${xpGive.xp_granted} XP**
-│
-│ <a:59120white:1369250400401620992> Level: **${xpGive.new_level}**
-│ <a:59586leftwing:1369250402834583693> Current XP: **${xpGive.new_xp}**
-│
-${xpGive.leveled_up
-? `│ <a:72687pink:1369250415971012689> **Level Up!**
-│ :97637pink: **${xpGive.previous_level}** ➜ **${xpGive.new_level}**
-│`
-: ""}
-╰────────────`
-    )
+        `╭─ ✦ **Experience Gained**
+        │
+        │ <a:65270roseblooming:1369250407225884672> **${xpGive.username}** earned **+${xpGive.xp_granted} XP**
+        │
+        │ <a:59120white:1369250400401620992> Level: **${xpGive.new_level}**
+        │ <a:59586leftwing:1369250402834583693> Current XP: **${xpGive.new_xp}**
+        │
+        ${xpGive.leveled_up
+        ? `│ <a:72687pink:1369250415971012689> **Level Up!**
+        │ :97637pink: **${xpGive.previous_level}** ➜ **${xpGive.new_level}**
+        │`
+        : ""}
+        ╰────────────`
+            )
     .setFooter({
         text: "☾ Lunar XP • "
     }).setTimestamp();
@@ -323,10 +328,6 @@ client.on('guildMemberAdd', async member => {
 });
 
 client.on('messageReactionAdd', async (reaction, user) => {
-    if(reaction.message.id == '1477776508553658469') {
-        (await reaction.message.guild?.members.cache.get(user.id) as GuildMember).roles.add('1403390546164187217');
-    };
-
     if(reaction.message.channel.id == '1486807743485448203') {
         if(reaction.emoji.name == '🍅') {
             const memberInfo = (await cluster.execute(`SELECT * FROM lunarbot.users WHERE snowflakeid=${reaction.message.author?.id}`)).rows[0];
