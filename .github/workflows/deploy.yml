@@ -1,0 +1,24 @@
+name: Build and Deploy game server release & test
+
+on:
+  push:
+    branches:
+      - gameserver-test
+      - gameserver-release
+  workflow_dispatch: 
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: upload to vps
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with: 
+          server: 5.249.161.61
+          username: root
+          password: ${{ secrets.SFTP_VPS_PASSWORD }}
+          port: 22
+          local_path: './*'
+          remote_path: '/var/lunar/bot'
+          sftp_only: true
+          
