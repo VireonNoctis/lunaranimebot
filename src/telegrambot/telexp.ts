@@ -1,9 +1,8 @@
+
 import { Telegraf, Context } from "telegraf";
 import cassandra from "cassandra-driver";
 import { cluster, client } from "..";
 import grantXP from "../lunarapi/grantXP";
-import { redis } from "../redis";
-
 import { EmbedBuilder, TextChannel } from "discord.js";
 
 type LastMsg = {
@@ -11,6 +10,9 @@ type LastMsg = {
   userId: string;
   time: number;
 };
+
+// optional lightweight in-memory cache (NOT Redis)
+const lastMessageCache = new Map<string, LastMsg>();
 
 export function registerTelegramXP(bot: Telegraf) {
 
@@ -23,16 +25,14 @@ export function registerTelegramXP(bot: Telegraf) {
       const chatId = message.chat.id.toString();
       const content = message.text;
 
-      const redisKey = `tg:lastmsg:${chatId}`;
-
       // -----------------------------
-      // Redis last message
+      // MEMORY CACHE
       // -----------------------------
-      const raw = await redis.get(redisKey);
-      const last: LastMsg | null = raw ? JSON.parse(raw) : null;
+      const last = lastMessageCache.get(chatId);
 
       const lastContent = last?.content ?? "";
       const lastUserId = last?.userId ?? "";
+
 
       // -----------------------------
       // Cassandra user
