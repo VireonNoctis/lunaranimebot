@@ -1,4 +1,4 @@
-export default function generateCode(username :string) {
+export default function generateCode(username :string, lunarname :string) {
     let randomNumber = Math.floor((Math.pow(((Math.random() * 9999) * (Math.random() * -5)), 2)));
     let time = new Date().getTime();
     let usernameLength = username.length;
@@ -15,7 +15,8 @@ export default function generateCode(username :string) {
     
     let numberString = String(number);
 
-    let outcome = characters.substring(0, 6)
+    let outcome = 
+        lunarname
         + '-'
         + numberString.substring(0, numberString.length /2)
         + '-'

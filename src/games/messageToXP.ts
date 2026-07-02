@@ -1,7 +1,7 @@
 import { EmbedBuilder, Message, TextChannel } from "discord.js";
-import grantXP from "../../lunarapi/grantXP";
+import grantXP from "../lunarapi/grantXP";
 import cassandra from 'cassandra-driver';
-import { client, cluster } from "../..";
+import { client, cluster } from "..";
 
 export default async function(message :Message) {
     const userInfo = (await cluster.execute(`SELECT * FROM lunarbot.accountlinks WHERE snowflakeid=${message.author.id} ALLOW FILTERING;`)).rows[0];

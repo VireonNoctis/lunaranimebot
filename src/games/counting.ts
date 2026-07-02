@@ -1,5 +1,5 @@
 import type { Message } from "discord.js";
-import { cluster } from "../..";
+import { cluster } from "..";
 
 export default async function(message :Message) {
     if(message.channel == message.guild?.channels.cache.get('1486807743485448203')) {
