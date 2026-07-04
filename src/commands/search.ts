@@ -5,35 +5,33 @@ import {
     ActionRowBuilder,
     StringSelectMenuBuilder,
     ButtonBuilder,
-    ButtonStyle,
-    ComponentType
+    ButtonStyle
 } from "discord.js";
 
 /* --------------------------------------------------
-   CACHE + SESSIONS
+   MEMORY STATE
 -------------------------------------------------- */
 
 const cache = new Map<string, any>();
 const sessions = new Map<string, any>();
-const timers = new Map<string, NodeJS.Timeout>();
 
 function setCache(key: string, value: any, ttl = 300000) {
     cache.set(key, { value, expires: Date.now() + ttl });
 }
 
 function getCache(key: string) {
-    const c = cache.get(key);
-    if (!c) return null;
-    if (Date.now() > c.expires) return null;
-    return c.value;
+    const v = cache.get(key);
+    if (!v) return null;
+    if (Date.now() > v.expires) return null;
+    return v.value;
 }
 
 /* --------------------------------------------------
-   API LAYER (LUNAR ONLY)
+   API (LUNAR ONLY)
 -------------------------------------------------- */
 
 async function searchManga(query: string) {
-    const cached = getCache(`search:${query}`);
+    const cached = getCache(`s:${query}`);
     if (cached) return cached;
 
     const res = await fetch(
@@ -41,14 +39,14 @@ async function searchManga(query: string) {
     );
 
     const data = await res.json();
-    const results = data?.manga ?? [];
+    const result = data?.manga ?? [];
 
-    setCache(`search:${query}`, results);
-    return results;
+    setCache(`s:${query}`, result);
+    return result;
 }
 
 async function fetchManga(slug: string) {
-    const cached = getCache(`manga:${slug}`);
+    const cached = getCache(`m:${slug}`);
     if (cached) return cached;
 
     const res = await fetch(
@@ -57,8 +55,46 @@ async function fetchManga(slug: string) {
 
     const data = await res.json();
 
-    setCache(`manga:${slug}`, data);
+    setCache(`m:${slug}`, data);
     return data;
+}
+
+/* --------------------------------------------------
+   COLOR ENGINE (THEME + GRADIENT FALLBACK)
+-------------------------------------------------- */
+
+function parseColor(hex: string) {
+    if (!hex) return null;
+    if (hex.startsWith("#")) return parseInt(hex.replace("#", "0x"));
+    if (hex.length === 6) return parseInt("0x" + hex);
+    return null;
+}
+
+function gradientFallback(title: string) {
+    // deterministic pseudo-gradient → stable per title
+    let hash = 0;
+    for (let i = 0; i < title.length; i++) {
+        hash = (hash * 31 + title.charCodeAt(i)) >>> 0;
+    }
+
+    const colors = [
+        0x8B5CF6, // purple
+        0x3B82F6, // blue
+        0x10B981, // green
+        0xF59E0B, // amber
+        0xEF4444  // red
+    ];
+
+    return colors[hash % colors.length];
+}
+
+function resolveColor(manga: any) {
+    const theme = manga?.theme_color || manga?.themecolor;
+    const parsed = parseColor(theme);
+
+    if (parsed) return parsed;
+
+    return gradientFallback(manga?.title || "lunar");
 }
 
 /* --------------------------------------------------
@@ -83,24 +119,44 @@ function similarity(a: string, b: string) {
 }
 
 /* --------------------------------------------------
-   PAGINATION
+   UI HELPERS
 -------------------------------------------------- */
 
-function paginate(arr: any[], page: number, perPage = 10) {
-    return arr.slice(page * perPage, page * perPage + perPage);
+function paginate(arr: any[], page: number, per = 10) {
+    return arr.slice(page * per, page * per + per);
 }
 
 /* --------------------------------------------------
-   EMBEDS
+   MINI APP STATE
 -------------------------------------------------- */
 
-function infoEmbed(manga: any, chapters: any[]) {
-    const latest = chapters[0];
-    const uploader = latest?.uploader_profile;
-    const languages = [...new Set(chapters.map((c: any) => c.language))];
+function setSession(id: string, data: any) {
+    sessions.set(id, data);
+}
 
+function getSession(id: string) {
+    return sessions.get(id);
+}
+
+/* --------------------------------------------------
+   EMBEDS (APP PAGES)
+-------------------------------------------------- */
+
+function buildHome(results: any[], query: string) {
     return new EmbedBuilder()
         .setColor(0x8B5CF6)
+        .setTitle("🌙 Lunar Catalog")
+        .setDescription(
+            `Search: **${query}**\nResults: **${results.length}**\n\nSelect a title below.`
+        );
+}
+
+function buildInfo(manga: any, chapters: any[]) {
+    const latest = chapters[0];
+    const uploader = latest?.uploader_profile;
+
+    return new EmbedBuilder()
+        .setColor(resolveColor(manga))
         .setTitle(`🌙 ${manga.title}`)
         .setURL(`https://lunaranime.ru/manga/${manga.slug}`)
         .setThumbnail(manga.cover_url)
@@ -114,78 +170,34 @@ function infoEmbed(manga: any, chapters: any[]) {
 `Author: ${manga.author || "?"}
 Artist: ${manga.artist || "?"}
 Status: ${manga.publication_status || "?"}
-Year: ${manga.publication_year || "?"}
-Rating: ${manga.rating || "?"}`
+Year: ${manga.publication_year || "?"}`
             },
             {
-                name: "📦 Release",
+                name: "📦 Stats",
                 value:
 `Chapters: ${chapters.length}
-Languages: ${languages.join(", ")}
-Latest: ${latest?.uploaded_at ? `<t:${Math.floor(new Date(latest.uploaded_at).getTime()/1000)}:R>` : "?"}`
+Rating: ${manga.rating || "?"}`
             },
             {
                 name: "👤 Uploader",
                 value:
-`Username: ${uploader?.username || "?"}
-Level: ${uploader?.level || "?"}
-Title: ${uploader?.title || "?"}`
+`User: ${uploader?.username || "?"}
+Level: ${uploader?.level || "?"}`
             }
         );
 }
 
-function chaptersEmbed(chapters: any[], page: number) {
-    const per = 10;
-    const slice = chapters.slice(page * per, page * per + per);
-
-    return new EmbedBuilder()
-        .setColor(0x8B5CF6)
-        .setTitle("📖 Chapters")
-        .setDescription(
-            slice.map((c: any) =>
-                `Ch ${c.chapter_number} • <t:${Math.floor(new Date(c.uploaded_at).getTime()/1000)}:R>`
-            ).join("\n")
-        )
-        .setFooter({ text: `Page ${page + 1}` });
-}
-
-function languagesEmbed(chapters: any[]) {
-    const map = new Map<string, number>();
-
-    for (const c of chapters) {
-        map.set(c.language, (map.get(c.language) || 0) + 1);
-    }
-
-    return new EmbedBuilder()
-        .setColor(0x8B5CF6)
-        .setTitle("🌐 Languages")
-        .setDescription(
-            [...map.entries()].map(([l, c]) => `${l} • ${c}`).join("\n")
-        );
-}
-
-function statsEmbed(manga: any, chapters: any[]) {
-    return new EmbedBuilder()
-        .setColor(0x8B5CF6)
-        .setTitle("📊 Stats")
-        .setDescription(
-`Rating: ${manga.rating}
-Status: ${manga.publication_status}
-Year: ${manga.publication_year}
-Chapters: ${chapters.length}`
-        );
-}
-
 /* --------------------------------------------------
-   NAVIGATION
+   TABS (APP NAVIGATION)
 -------------------------------------------------- */
 
 function nav(sessionId: string) {
     return new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder().setCustomId(`info_${sessionId}`).setLabel("Info").setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId(`chap_${sessionId}`).setLabel("Chapters").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`lang_${sessionId}`).setLabel("Languages").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`stats_${sessionId}`).setLabel("Stats").setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId(`tab_info_${sessionId}`).setLabel("Info").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`tab_chapters_${sessionId}`).setLabel("Chapters").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`tab_lang_${sessionId}`).setLabel("Languages").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`tab_stats_${sessionId}`).setLabel("Stats").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`close_${sessionId}`).setLabel("Close").setStyle(ButtonStyle.Danger)
     );
 }
 
@@ -198,32 +210,33 @@ export default {
 
     async execute(message: Message, args: string[]) {
         if (!args.length) {
-            return message.reply(`${EMOJI.question} Usage: !search <query>`);
+            return message.reply(`${EMOJI.question} !search <query>`);
         }
 
         const query = args.join(" ");
-        const loading = await message.reply(`${EMOJI.loading} Searching Lunar...`);
+        const loading = await message.reply(`${EMOJI.loading} Searching...`);
 
         let results = await searchManga(query);
 
         if (!results.length) {
-            return loading.edit(`${EMOJI.denied} No results found`);
+            return loading.edit(`${EMOJI.denied} No results`);
         }
 
         results = results.slice(0, 50);
 
         const sessionId = message.id;
 
-        sessions.set(sessionId, {
+        setSession(sessionId, {
             results,
-            page: 0
+            page: 0,
+            view: "home"
         });
 
         const page = paginate(results, 0);
 
-        const menu = new StringSelectMenuBuilder()
+        const select = new StringSelectMenuBuilder()
             .setCustomId(`select_${sessionId}`)
-            .setPlaceholder("Select manga...")
+            .setPlaceholder("Choose a manga...")
             .addOptions(
                 page.map((m: any) => ({
                     label: m.title.slice(0, 100),
@@ -231,34 +244,17 @@ export default {
                 }))
             );
 
-        const row = new ActionRowBuilder<StringSelectMenuBuilder>()
-            .addComponents(menu);
-
         const msg = await loading.edit({
-            content: `${EMOJI.approved} Found ${results.length} results`,
-            embeds: [
-                new EmbedBuilder()
-                    .setColor(0x8B5CF6)
-                    .setTitle("🌙 Lunar Search")
-                    .setDescription("Select a manga below")
-            ],
-            components: [row]
+            content: `${EMOJI.approved} Ready`,
+            embeds: [buildHome(results, query)],
+            components: [
+                new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select)
+            ]
         });
 
-        /* --------------------------
-           TIMEOUT CLEANUP
-        -------------------------- */
-
-        const timer = setTimeout(async () => {
-            sessions.delete(sessionId);
-            await msg.edit({ components: [] }).catch(() => {});
-        }, 60000);
-
-        timers.set(sessionId, timer);
-
-        /* --------------------------
-           COLLECTOR
-        -------------------------- */
+        /* -----------------------------
+           COLLECTOR (APP ENGINE)
+        ----------------------------- */
 
         const collector = msg.createMessageComponentCollector({
             time: 60000
@@ -266,9 +262,11 @@ export default {
 
         collector.on("collect", async (i) => {
 
-            /* --------------------------
-               SELECT MENU
-            -------------------------- */
+            const session = getSession(sessionId);
+
+            /* -----------------------------
+               SELECT → OPEN APP
+            ----------------------------- */
 
             if (i.isStringSelectMenu()) {
                 const slug = i.values[0];
@@ -276,62 +274,93 @@ export default {
                 const manga = await fetchManga(slug);
                 const chapters = manga?.data ?? [];
 
-                sessions.set(sessionId, {
+                setSession(sessionId, {
                     manga,
                     chapters,
-                    page: 0
+                    view: "info"
                 });
 
                 return i.update({
-                    embeds: [infoEmbed(manga, chapters)],
+                    embeds: [buildInfo(manga, chapters)],
                     components: [nav(sessionId)]
                 });
             }
 
-            const s = sessions.get(sessionId);
-            if (!s?.manga) return i.deferUpdate();
+            if (!session?.manga) return i.deferUpdate();
 
-            const { manga, chapters } = s;
+            const { manga, chapters } = session;
 
-            /* --------------------------
-               NAVIGATION
-            -------------------------- */
+            /* -----------------------------
+               TABS SYSTEM
+            ----------------------------- */
 
-            if (i.customId === `info_${sessionId}`) {
-                return i.update({
-                    embeds: [infoEmbed(manga, chapters)],
-                    components: [nav(sessionId)]
-                });
-            }
+            switch (i.customId) {
 
-            if (i.customId === `chap_${sessionId}`) {
-                s.page = 0;
-                return i.update({
-                    embeds: [chaptersEmbed(chapters, 0)],
-                    components: [nav(sessionId)]
-                });
-            }
+                case `tab_info_${sessionId}`:
+                    return i.update({
+                        embeds: [buildInfo(manga, chapters)],
+                        components: [nav(sessionId)]
+                    });
 
-            if (i.customId === `lang_${sessionId}`) {
-                return i.update({
-                    embeds: [languagesEmbed(chapters)],
-                    components: [nav(sessionId)]
-                });
-            }
+                case `tab_chapters_${sessionId}`:
+                    return i.update({
+                        embeds: [
+                            new EmbedBuilder()
+                                .setColor(resolveColor(manga))
+                                .setTitle("📖 Chapters")
+                                .setDescription(
+                                    chapters.slice(0, 10)
+                                        .map((c: any) =>
+                                            `Ch ${c.chapter_number} • <t:${Math.floor(new Date(c.uploaded_at).getTime()/1000)}:R>`
+                                        )
+                                        .join("\n")
+                                )
+                        ],
+                        components: [nav(sessionId)]
+                    });
 
-            if (i.customId === `stats_${sessionId}`) {
-                return i.update({
-                    embeds: [statsEmbed(manga, chapters)],
-                    components: [nav(sessionId)]
-                });
+                case `tab_lang_${sessionId}`:
+                    return i.update({
+                        embeds: [
+                            new EmbedBuilder()
+                                .setColor(resolveColor(manga))
+                                .setTitle("🌐 Languages")
+                                .setDescription(
+                                    [...new Set(chapters.map((c: any) => c.language))]
+                                        .join(", ")
+                                )
+                        ],
+                        components: [nav(sessionId)]
+                    });
+
+                case `tab_stats_${sessionId}`:
+                    return i.update({
+                        embeds: [
+                            new EmbedBuilder()
+                                .setColor(resolveColor(manga))
+                                .setTitle("📊 Stats")
+                                .setDescription(
+`Rating: ${manga.rating}
+Status: ${manga.publication_status}
+Year: ${manga.publication_year}
+Chapters: ${chapters.length}`
+                                )
+                        ],
+                        components: [nav(sessionId)]
+                    });
+
+                case `close_${sessionId}`:
+                    sessions.delete(sessionId);
+                    return i.update({
+                        content: "Closed.",
+                        embeds: [],
+                        components: []
+                    });
             }
         });
 
         collector.on("end", async () => {
             sessions.delete(sessionId);
-            const t = timers.get(sessionId);
-            if (t) clearTimeout(t);
-
             await msg.edit({ components: [] }).catch(() => {});
         });
     }
