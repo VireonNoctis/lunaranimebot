@@ -1,250 +1,1752 @@
-import { Telegraf, Context } from "telegraf";
 import {
+    Client,
+    TextChannel,
     WebhookClient,
-    TextChannel
+    Message,
+    Attachment,
+    GuildMember,
+    ThreadChannel,
 } from "discord.js";
-import { discordClient } from "..";
+
+import {
+    Telegraf,
+    Context
+} from "telegraf";
+
+import {
+    promises as fs
+} from "fs";
+
+import path from "path";
+
+import crypto from "crypto";
+
 
 /**
- * IDS
+ * ============================================================
+ * CONFIGURATION
+ * ============================================================
  */
-const TG_CHAT_ID = -1003860971024;
 
-const DISCORD_GUILD_ID = "1330574273760465029";
-const DISCORD_CHANNEL_ID = "1463041674501689502";
+export interface BridgeConfig {
 
-/**
- * MEMORY STATE
- */
-const tgToDiscord = new Map<number, string>();
-const discordToTg = new Map<string, number>();
-const replyMapTG = new Map<number, number>();
-const replyMapDC = new Map<string, string>();
-
-const avatarCache = new Map<number, string>();
-
-/**
- * SIMPLE QUEUE SYSTEM
- * (prevents rate limit / burst crash)
- */
-type Job = () => Promise<void>;
-const queue: Job[] = [];
-let processing = false;
-
-async function enqueue(job: Job) {
-    queue.push(job);
-    if (!processing) runQueue();
-}
-
-async function runQueue() {
-    processing = true;
-
-    while (queue.length) {
-        const job = queue.shift();
-        if (!job) continue;
-
-        try {
-            await job();
-            await new Promise(r => setTimeout(r, 250)); // rate-limit buffer
-        } catch {}
-    }
-
-    processing = false;
-}
-
-/**
- * WEBHOOK
- */
-let webhook: WebhookClient | null = null;
-
-async function getWebhook(channel: TextChannel) {
-    if (webhook) return webhook;
-
-    const hooks = await channel.fetchWebhooks();
-    const existing = hooks.find(h => h.name === "TG_BRIDGE");
-
-    if (existing) {
-        webhook = new WebhookClient({
-            id: existing.id,
-            token: existing.token!
-        });
-        return webhook;
-    }
-
-    const created = await channel.createWebhook({
-        name: "TG_BRIDGE",
-        avatar: null
-    });
-
-    webhook = new WebhookClient({
-        id: created.id,
-        token: created.token!
-    });
-
-    return webhook;
-}
-
-/**
- * MARKDOWN PARSER
- * Telegram → Discord Markdown normalization
- */
-function parseMarkdown(text: string) {
-    if (!text) return "";
-
-    return text
-        // bold
-        .replace(/\*(.*?)\*/g, "**$1**")
-        // italic
-        .replace(/_(.*?)_/g, "*$1*")
-        // code
-        .replace(/`([^`]+)`/g, "`$1`")
-        // monospace block
-        .replace(/```([\s\S]*?)```/g, "```$1```")
-        // links (basic)
-        .replace(/\[(.+?)\]\((.+?)\)/g, "[$1]($2)");
-}
-
-/**
- * SANITIZER
- */
-function sanitize(text: string) {
-    return text
-        .replace(/@everyone/g, "@\u200beveryone")
-        .replace(/@here/g, "@\u200bhere");
-}
-
-/**
- * AVATAR CACHE
- */
-async function getAvatar(ctx: Context, userId: number) {
-    if (avatarCache.has(userId)) return avatarCache.get(userId);
-
-    try {
-        const photos = await ctx.telegram.getUserProfilePhotos(userId, 0, 1);
-        const fileId = photos.photos?.[0]?.[0]?.file_id;
-        if (!fileId) return null;
-
-        const file = await ctx.telegram.getFile(fileId);
-        if (!file.file_path) return null;
-
-        const url = `https://api.telegram.org/file/bot${ctx.telegram.token}/${file.file_path}`;
-        avatarCache.set(userId, url);
-
-        return url;
-    } catch {
-        return null;
-    }
-}
-
-/**
- * MAIN EXPORT
- */
-export function registerTelegramBridge(bot: Telegraf) {
-
-    /**
-     * TELEGRAM → DISCORD
-     */
-    bot.on("message", async (ctx) => enqueue(async () => {
-        const msg: any = ctx.message;
-        if (!msg || msg.chat.id !== TG_CHAT_ID) return;
-
-        const channel = discordClient.guilds.cache
-            .get(DISCORD_GUILD_ID)
-            ?.channels.cache.get(DISCORD_CHANNEL_ID) as TextChannel;
-
-        if (!channel) return;
-
-        const hook = await getWebhook(channel);
-
-        const username =
-            msg.from?.username ||
-            msg.from?.first_name ||
-            "Telegram User";
-
-        const avatarURL = await getAvatar(ctx, msg.from.id);
-
-        let content = sanitize(parseMarkdown(msg.text || msg.caption || ""));
+    telegram: {
+        chatId: number;
 
         /**
-         * REPLY HANDLING (TG → DC)
+         * Telegram message split limit
          */
-        if (msg.reply_to_message?.message_id) {
-            const ref = tgToDiscord.get(msg.reply_to_message.message_id);
-            if (ref) {
-                content = `↪ Replying to message\n${content}`;
-            }
-        }
+        maxMessageLength: number;
+    };
 
-        const files: string[] = [];
 
-        const pushFile = async (fileId: string) => {
-            const file = await ctx.telegram.getFile(fileId);
-            if (file.file_path) {
-                files.push(
-                    `https://api.telegram.org/file/bot${ctx.telegram.token}/${file.file_path}`
-                );
-            }
-        };
+    discord: {
+        guildId: string;
 
-        if (msg.photo) await pushFile(msg.photo[msg.photo.length - 1].file_id);
-        if (msg.video) await pushFile(msg.video.file_id);
-        if (msg.document) await pushFile(msg.document.file_id);
-        if (msg.audio) await pushFile(msg.audio.file_id);
-        if (msg.voice) await pushFile(msg.voice.file_id);
+        channelId: string;
 
-        if (msg.sticker) {
-            content += ` [Sticker: ${msg.sticker.emoji || "unknown"}]`;
-        }
+        webhookName: string;
 
-        const sent = await hook.send({
-            username,
-            avatarURL: avatarURL || undefined,
-            content: content || "[media]",
-            files
-        });
+        /**
+         * Discord message split limit
+         */
+        maxMessageLength: number;
+    };
 
-        tgToDiscord.set(msg.message_id, sent.id);
-    }));
+
+    storage: {
+        file: string;
+
+        /**
+         * How often state is saved
+         */
+        saveInterval: number;
+    };
+
+
+    queue: {
+        delay: number;
+
+        maxRetries: number;
+    };
+
+
+    features: {
+
+        replies: boolean;
+
+        edits: boolean;
+
+        deletes: boolean;
+
+        threads: boolean;
+
+        media: boolean;
+
+        mentions: boolean;
+    };
+
+
+    debug: boolean;
+}
+
+
+export const CONFIG: BridgeConfig = {
+
+    telegram: {
+        chatId: -1003860971024,
+        maxMessageLength: 4096,
+    },
+
+
+    discord: {
+        guildId: "1330574273760465029",
+
+        channelId: "1463041674501689502",
+
+        webhookName: "TG_BRIDGE",
+
+        maxMessageLength: 2000,
+    },
+
+
+    storage: {
+
+        file: path.join(
+            process.cwd(),
+            "bridge-state.json"
+        ),
+
+        saveInterval: 60000,
+    },
+
+
+    queue: {
+
+        delay: 250,
+
+        maxRetries: 5,
+    },
+
+
+    features: {
+
+        replies: true,
+
+        edits: true,
+
+        deletes: true,
+
+        threads: true,
+
+        media: true,
+
+        mentions: true,
+    },
+
+
+    debug: false,
+};
+
+
+
+/**
+ * ============================================================
+ * TYPES
+ * ============================================================
+ */
+
+
+export type BridgeJob = () => Promise<void>;
+
+
+
+export interface MessageMapping {
+
+    telegramId?: number;
+
+    discordId?: string;
+
 
     /**
-     * DISCORD → TELEGRAM
+     * Timestamp created
      */
-    discordClient.on("messageCreate", async (message: any) => enqueue(async () => {
-        if (message.channel.id !== DISCORD_CHANNEL_ID) return;
-        if (message.author.bot) return;
+    createdAt: number;
 
-        const tgMsg = await bot.telegram.sendMessage(
-            TG_CHAT_ID,
-            sanitize(parseMarkdown(
-                `${message.author.username}: ${message.content || ""}`
-            ))
+
+    /**
+     * Last update
+     */
+    updatedAt: number;
+}
+
+
+
+export interface BridgeState {
+
+
+    /**
+     * Telegram message id -> Discord message id
+     */
+    telegramToDiscord:
+        Record<string, string>;
+
+
+
+    /**
+     * Discord message id -> Telegram message id
+     */
+    discordToTelegram:
+        Record<string, number>;
+
+
+
+    /**
+     * Reply references
+     */
+    replies:
+        Record<string, string>;
+
+
+
+    /**
+     * Known users
+     */
+    users:
+        Record<string, CachedUser>;
+
+
+
+    /**
+     * Cached webhook
+     */
+    webhook?: {
+
+        id: string;
+
+        token: string;
+
+    };
+
+}
+
+
+
+export interface CachedUser {
+
+    id: string;
+
+    username: string;
+
+    avatar?: string;
+
+
+    updatedAt: number;
+}
+
+
+
+export interface QueueItem {
+
+    id: string;
+
+    createdAt: number;
+
+    retries: number;
+
+    execute: BridgeJob;
+}
+
+
+
+export interface MediaItem {
+
+    url: string;
+
+    name?: string;
+
+    type?:
+        | "image"
+        | "video"
+        | "audio"
+        | "document"
+        | "voice";
+
+}
+
+
+
+export interface TelegramMessage {
+
+    message_id: number;
+
+    chat: {
+
+        id: number;
+
+    };
+
+
+    from?: {
+
+        id: number;
+
+        username?: string;
+
+        first_name?: string;
+
+        last_name?: string;
+
+    };
+
+
+    text?: string;
+
+    caption?: string;
+
+
+    reply_to_message?: TelegramMessage;
+
+
+    photo?: any[];
+
+    video?: any;
+
+    audio?: any;
+
+    voice?: any;
+
+    document?: any;
+
+    sticker?: any;
+
+}
+
+
+
+/**
+ * ============================================================
+ * LOGGER
+ * ============================================================
+ */
+
+
+export class Logger {
+
+
+    private prefix = "[Bridge]";
+
+
+    info(...args: unknown[]) {
+
+        console.log(
+            this.prefix,
+            "[INFO]",
+            ...args
         );
 
-        discordToTg.set(message.id, tgMsg.message_id);
-    }));
+    }
 
-    /**
-     * DISCORD EDIT
-     */
-    discordClient.on("messageUpdate", async (_, newMsg: any) => enqueue(async () => {
-        const tgId = discordToTg.get(newMsg.id);
-        if (!tgId) return;
 
-        await bot.telegram.editMessageText(
-            TG_CHAT_ID,
-            tgId,
-            undefined,
-            sanitize(parseMarkdown(newMsg.content || ""))
-        ).catch(() => {});
-    }));
+    warn(...args: unknown[]) {
 
-    /**
-     * DISCORD DELETE
-     */
-    discordClient.on("messageDelete", async (msg: any) => enqueue(async () => {
-        const tgId = discordToTg.get(msg.id);
-        if (!tgId) return;
+        console.warn(
+            this.prefix,
+            "[WARN]",
+            ...args
+        );
 
-        await bot.telegram.deleteMessage(TG_CHAT_ID, tgId).catch(() => {});
-    }));
+    }
+
+
+
+    error(...args: unknown[]) {
+
+        console.error(
+            this.prefix,
+            "[ERROR]",
+            ...args
+        );
+
+    }
+
+
+
+    debug(...args: unknown[]) {
+
+        if (!CONFIG.debug)
+            return;
+
+
+        console.log(
+            this.prefix,
+            "[DEBUG]",
+            ...args
+        );
+
+    }
+
 }
+
+
+export const logger = new Logger();
+
+
+
+
+/**
+ * ============================================================
+ * UTILITIES
+ * ============================================================
+ */
+
+
+export function sleep(
+    ms:number
+){
+
+    return new Promise(
+        resolve =>
+            setTimeout(resolve, ms)
+    );
+
+}
+
+
+
+export function generateId(){
+
+    return crypto
+        .randomBytes(8)
+        .toString("hex");
+
+}
+
+
+
+
+export function truncate(
+    text:string,
+    length:number
+){
+
+    if(text.length <= length)
+        return text;
+
+
+    return (
+        text.slice(
+            0,
+            length - 3
+        )
+        +
+        "..."
+    );
+
+}
+
+
+
+
+
+export function splitMessage(
+    text:string,
+    limit:number
+):string[]{
+
+
+    const chunks:string[] = [];
+
+
+    let current = "";
+
+
+
+    for(
+        const line of text.split("\n")
+    ){
+
+        if(
+            (
+                current.length
+                +
+                line.length
+            )
+            >
+            limit
+        ){
+
+            chunks.push(current);
+
+            current = line;
+
+        }
+
+        else{
+
+            current +=
+                (
+                    current
+                        ? "\n"
+                        : ""
+                )
+                +
+                line;
+
+        }
+
+    }
+
+
+
+    if(current)
+        chunks.push(current);
+
+
+
+    return chunks;
+
+}
+
+
+
+
+
+export function cleanMentions(
+    text:string
+){
+
+    return text
+
+        .replace(
+            /@everyone/g,
+            "@\u200beveryone"
+        )
+
+        .replace(
+            /@here/g,
+            "@\u200bhere"
+        );
+
+}
+
+
+
+
+
+export function escapeMarkdown(
+    text:string
+){
+
+    return text.replace(
+        /([_*[\]()~`>#+-=|{}.!])/g,
+        "\\$1"
+    );
+
+}
+
+
+
+
+
+export function normalizeUsername(
+    name?:string
+){
+
+    if(!name)
+        return "Unknown User";
+
+
+    return name
+        .replace(
+            /[^a-zA-Z0-9_\- ]/g,
+            ""
+        )
+        .slice(
+            0,
+            32
+        );
+
+}
+
+
+
+
+/**
+ * ============================================================
+ * STATE MANAGER FOUNDATION
+ * ============================================================
+ */
+
+
+export class StateManager {
+
+
+    private state:BridgeState = {
+
+        telegramToDiscord:{},
+
+        discordToTelegram:{},
+
+        replies:{},
+
+        users:{},
+
+    };
+
+
+
+    private dirty = false;
+
+
+
+    async load(){
+
+        try{
+
+
+            const raw =
+                await fs.readFile(
+                    CONFIG.storage.file,
+                    "utf8"
+                );
+
+
+            this.state =
+                JSON.parse(raw);
+
+
+            logger.info(
+                "State loaded"
+            );
+
+
+        }
+
+        catch{
+
+
+            logger.info(
+                "No state file found, creating new state"
+            );
+
+
+            await this.save();
+
+        }
+
+    }
+
+
+
+
+
+    async save(){
+
+        await fs.writeFile(
+
+            CONFIG.storage.file,
+
+            JSON.stringify(
+                this.state,
+                null,
+                4
+            )
+
+        );
+
+
+        this.dirty = false;
+
+    }
+
+
+
+
+
+    markDirty(){
+
+        this.dirty = true;
+
+    }
+
+
+
+
+
+    get(){
+
+        return this.state;
+
+    }
+
+
+
+
+
+    setTelegramDiscord(
+        telegram:number,
+        discord:string
+    ){
+
+        this.state.telegramToDiscord[
+            String(telegram)
+        ]
+            =
+        discord;
+
+
+        this.markDirty();
+
+    }
+
+
+
+
+
+    getDiscordFromTelegram(
+        telegram:number
+    ){
+
+        return (
+            this.state.telegramToDiscord[
+                String(telegram)
+            ]
+        );
+
+    }
+
+
+
+
+
+    setDiscordTelegram(
+        discord:string,
+        telegram:number
+    ){
+
+        this.state.discordToTelegram[
+            discord
+        ]
+            =
+        telegram;
+
+
+        this.markDirty();
+
+    }
+
+
+
+
+
+    getTelegramFromDiscord(
+        discord:string
+    ){
+
+        return (
+            this.state.discordToTelegram[
+                discord
+            ]
+        );
+
+    }
+
+
+}
+
+
+
+export const stateManager =
+    new StateManager();
+
+
+
+/**
+ * ============================================================
+ * ASYNC QUEUE
+ * ============================================================
+ */
+
+
+export class TaskQueue {
+
+
+    private queue: QueueItem[] = [];
+
+    private running = false;
+
+
+
+    add(
+        execute: BridgeJob
+    ){
+
+        this.queue.push({
+
+            id: generateId(),
+
+            createdAt: Date.now(),
+
+            retries: 0,
+
+            execute,
+
+        });
+
+
+
+        this.process();
+
+    }
+
+
+
+
+    private async process(){
+
+        if(this.running)
+            return;
+
+
+        this.running = true;
+
+
+
+        while(
+            this.queue.length
+        ){
+
+            const item =
+                this.queue.shift();
+
+
+
+            if(!item)
+                continue;
+
+
+
+            try{
+
+
+                await item.execute();
+
+
+
+            }
+
+            catch(error){
+
+
+                logger.error(
+                    "Queue task failed",
+                    error
+                );
+
+
+
+                if(
+                    item.retries
+                    <
+                    CONFIG.queue.maxRetries
+                ){
+
+
+                    item.retries++;
+
+
+                    this.queue.push(item);
+
+
+                    await sleep(
+                        1000 *
+                        item.retries
+                    );
+
+                }
+
+
+            }
+
+
+
+            await sleep(
+                CONFIG.queue.delay
+            );
+
+
+        }
+
+
+
+        this.running = false;
+
+    }
+
+
+
+
+    size(){
+
+        return this.queue.length;
+
+    }
+
+
+}
+
+
+
+export const taskQueue =
+    new TaskQueue();
+
+
+
+
+
+/**
+ * ============================================================
+ * RATE LIMITER
+ * ============================================================
+ */
+
+
+export class RateLimiter {
+
+
+    private requests =
+        new Map<string, number[]>();
+
+
+
+    constructor(
+        private limit:number,
+        private window:number
+    ){}
+
+
+
+    async wait(
+        key:string
+    ){
+
+        const now =
+            Date.now();
+
+
+
+        let entries =
+            this.requests.get(key)
+            ??
+            [];
+
+
+
+        entries =
+            entries.filter(
+                time =>
+                    now - time
+                    <
+                    this.window
+            );
+
+
+
+        if(
+            entries.length
+            >=
+            this.limit
+        ){
+
+            const delay =
+                this.window -
+                (
+                    now -
+                    entries[0]
+                );
+
+
+            await sleep(
+                delay
+            );
+
+        }
+
+
+
+        entries.push(
+            Date.now()
+        );
+
+
+        this.requests.set(
+            key,
+            entries
+        );
+
+    }
+
+
+}
+
+
+
+export const telegramLimiter =
+    new RateLimiter(
+        25,
+        1000
+    );
+
+
+
+export const discordLimiter =
+    new RateLimiter(
+        45,
+        1000
+    );
+
+
+
+
+
+/**
+ * ============================================================
+ * GENERIC CACHE
+ * ============================================================
+ */
+
+
+export class Cache<T>{
+
+
+    private data =
+        new Map<
+            string,
+            {
+                value:T;
+                expires:number;
+            }
+        >();
+
+
+
+    constructor(
+        private ttl:number
+    ){}
+
+
+
+
+    set(
+        key:string,
+        value:T
+    ){
+
+        this.data.set(
+            key,
+            {
+
+                value,
+
+                expires:
+                    Date.now()
+                    +
+                    this.ttl,
+
+            }
+        );
+
+    }
+
+
+
+
+    get(
+        key:string
+    ):T|undefined{
+
+
+        const item =
+            this.data.get(key);
+
+
+
+        if(!item)
+            return undefined;
+
+
+
+        if(
+            Date.now()
+            >
+            item.expires
+        ){
+
+            this.data.delete(key);
+
+            return undefined;
+
+        }
+
+
+
+        return item.value;
+
+    }
+
+
+
+
+
+    delete(
+        key:string
+    ){
+
+        this.data.delete(key);
+
+    }
+
+
+
+
+    clear(){
+
+        this.data.clear();
+
+    }
+
+
+
+}
+
+
+
+
+
+/**
+ * ============================================================
+ * USER CACHE
+ * ============================================================
+ */
+
+
+export interface UserProfile {
+
+    id:string;
+
+    username:string;
+
+    avatar?:string;
+
+}
+
+
+
+export class UserCache {
+
+
+    private cache =
+        new Cache<UserProfile>(
+            1000 *
+            60 *
+            60
+        );
+
+
+
+
+    set(
+        user:UserProfile
+    ){
+
+        this.cache.set(
+            user.id,
+            user
+        );
+
+    }
+
+
+
+
+
+    get(
+        id:string
+    ){
+
+        return this.cache.get(id);
+
+    }
+
+
+
+}
+
+
+
+
+
+export const userCache =
+    new UserCache();
+
+
+
+
+
+
+
+/**
+ * ============================================================
+ * MESSAGE CACHE
+ * ============================================================
+ */
+
+
+export interface CachedMessage {
+
+
+    id:string;
+
+
+    platform:
+        |
+        "telegram"
+        |
+        "discord";
+
+
+
+    mappedId:string|number;
+
+
+
+    content:string;
+
+
+
+    timestamp:number;
+
+
+
+}
+
+
+
+
+
+export class MessageCache {
+
+
+    private cache =
+        new Cache<CachedMessage>(
+            1000 *
+            60 *
+            60 *
+            24
+        );
+
+
+
+
+
+    set(
+        message:CachedMessage
+    ){
+
+        this.cache.set(
+            message.id,
+            message
+        );
+
+
+    }
+
+
+
+
+
+    get(
+        id:string
+    ){
+
+        return this.cache.get(id);
+
+    }
+
+
+
+
+
+    remove(
+        id:string
+    ){
+
+        this.cache.delete(id);
+
+    }
+
+
+}
+
+
+
+export const messageCache =
+    new MessageCache();
+
+
+
+
+
+
+/**
+ * ============================================================
+ * MEDIA CACHE
+ * ============================================================
+ */
+
+
+export interface CachedMedia {
+
+
+    id:string;
+
+
+    url:string;
+
+
+    type:string;
+
+
+    created:number;
+
+
+}
+
+
+
+
+export const mediaCache =
+    new Cache<CachedMedia>(
+        1000 *
+        60 *
+        30
+    );
+
+
+
+
+
+
+
+/**
+ * ============================================================
+ * DUPLICATE DETECTION
+ * ============================================================
+ */
+
+
+export class DuplicateDetector {
+
+
+    private hashes =
+        new Set<string>();
+
+
+
+    createHash(
+        content:string
+    ){
+
+        return crypto
+            .createHash("sha256")
+            .update(content)
+            .digest("hex");
+
+    }
+
+
+
+
+    exists(
+        content:string
+    ){
+
+        const hash =
+            this.createHash(
+                content
+            );
+
+
+        return this.hashes.has(hash);
+
+    }
+
+
+
+
+    remember(
+        content:string
+    ){
+
+        const hash =
+            this.createHash(
+                content
+            );
+
+
+        this.hashes.add(hash);
+
+
+
+        /**
+         * Cleanup old hashes
+         */
+        if(
+            this.hashes.size
+            >
+            5000
+        ){
+
+            const first =
+                this.hashes
+                    .values()
+                    .next()
+                    .value;
+
+
+            if(first)
+                this.hashes.delete(first);
+
+        }
+
+
+    }
+
+
+}
+
+
+
+
+export const duplicateDetector =
+    new DuplicateDetector();
+
+
+
+
+
+/**
+ * ============================================================
+ * CLEANUP LOOP
+ * ============================================================
+ */
+
+
+export function startCacheCleanup(){
+
+
+    setInterval(
+        ()=>{
+
+
+            userCache["cache"].clear();
+
+
+
+        },
+        1000 *
+        60 *
+        60
+    );
+
+
+}
+
+
+
+/**
+ * ============================================================
+ * CLIENT CONTEXT
+ * ============================================================
+ */
+
+
+export interface BridgeClients {
+
+    discord: Client;
+
+    telegram: Telegraf;
+
+}
+
+
+
+export class BridgeContext {
+
+
+    private clients:
+        BridgeClients | null =
+        null;
+
+
+
+    setClients(
+        clients:BridgeClients
+    ){
+
+        this.clients = clients;
+
+    }
+
+
+
+    get(){
+
+        if(!this.clients)
+            throw new Error(
+                "Bridge clients not initialized"
+            );
+
+
+        return this.clients;
+
+    }
+
+
+
+}
+
+
+
+export const bridgeContext =
+    new BridgeContext();
+
+
+
+
+
+/**
+ * ============================================================
+ * WEBHOOK MANAGER
+ * ============================================================
+ */
+
+
+export class WebhookManager {
+
+
+    private webhook:
+        WebhookClient | null =
+        null;
+
+
+
+    async get(){
+
+        if(this.webhook)
+            return this.webhook;
+
+
+
+        const {
+            discord
+        } =
+        bridgeContext.get();
+
+
+
+        const guild =
+            discord.guilds.cache.get(
+                CONFIG.discord.guildId
+            );
+
+
+
+        if(!guild)
+            throw new Error(
+                "Discord guild not found"
+            );
+
+
+
+        const channel =
+            guild.channels.cache.get(
+                CONFIG.discord.channelId
+            );
+
+
+
+        if(
+            !channel
+            ||
+            !(channel instanceof TextChannel)
+        ){
+
+            throw new Error(
+                "Discord channel invalid"
+            );
+
+        }
+
+
+
+
+
+        const hooks =
+            await channel.fetchWebhooks();
+
+
+
+        const existing =
+            hooks.find(
+                hook =>
+                    hook.name
+                    ===
+                    CONFIG.discord.webhookName
+            );
+
+
+
+        if(
+            existing
+            &&
+            existing.token
+        ){
+
+            this.webhook =
+                new WebhookClient({
+
+                    id:
+                        existing.id,
+
+                    token:
+                        existing.token,
+
+                });
+
+
+
+            stateManager
+                .get()
+                .webhook =
+                {
+
+                    id:
+                        existing.id,
+
+                    token:
+                        existing.token,
+
+                };
+
+
+
+            return this.webhook;
+
+        }
+
+
+
+
+
+        const created =
+            await channel.createWebhook({
+
+                name:
+                    CONFIG.discord.webhookName,
+
+            });
+
+
+
+
+
+        this.webhook =
+            new WebhookClient({
+
+                id:
+                    created.id,
+
+                token:
+                    created.token!,
+
+            });
+
+
+
+
+        stateManager
+            .get()
+            .webhook =
+            {
+
+                id:
+                    created.id,
+
+                token:
+                    created.token!,
+
+            };
+
+
+
+        await stateManager.save();
+
+
+
+        return this.webhook;
+
+
+    }
+
+
+
+
+
+    async reset(){
+
+        this.webhook = null;
+
+        logger.warn(
+            "Webhook cache cleared"
+        );
+
+    }
+
+
+}
+
+
+
+export const webhookManager =
+    new WebhookManager();
+
+
+
+
+
+
+/**
+ * ============================================================
+ * TELEGRAM MANAGER
+ * ============================================================
+ */
+
+
+export class TelegramManager {
+
+
+
+    get bot(){
+
+        return bridgeContext
+            .get()
+            .telegram;
+
+    }
+
+
+
+
+    async sendMess
