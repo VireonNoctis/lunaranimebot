@@ -75,6 +75,9 @@ client.on('clientReady', async client => {
 
 client.on('messageCreate', async message => {
     // Handless spam
+    
+
+    if(message.author.bot) return;
     if(message.channel == message.guild?.channels.cache.get('1486781635906113818')) {
         if(message.author.id == '960946185768685618') return message.channel.send('I like you, you get to life :3');
 
@@ -84,9 +87,7 @@ client.on('messageCreate', async message => {
 
         (message.guild.channels.cache.get('1499281835757404250') as TextChannel).send(message.content)
     }
-
-    if(message.author.bot) return;
-
+    
     let memberInfo = (await cluster.execute(`SELECT * FROM lunarbot.users WHERE snowflakeid=${message.author.id}`)).rows[0];
 
     if(!memberInfo) {
