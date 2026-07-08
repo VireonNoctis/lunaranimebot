@@ -37,6 +37,8 @@ import purge from "./commands/purge";
 import { EMOJI } from "../Utilities/emoji";
 import { inbox } from "../Utilities/mentionhandler";
 import search from "./commands/search";
+import { BOT_INFO, formatDevelopers, getUptime }from "../Utilities/about.js";
+import { aboutCommand } from "./commands/about.js";
 
 export const path = __dirname + '/../assets';
 
