@@ -4,7 +4,8 @@ export const BOT = Object.freeze({
 
     version: "1.0.0",
 
-    developer: [
+    developers: [
+
         {
             name: "Vireon",
 
@@ -12,8 +13,9 @@ export const BOT = Object.freeze({
             "https://discord.com/users/960946185768685618",
 
             telegram:
-            "https://t.me/Theslopking"
+            "tg://user?id=6497734480"
         },
+
 
         {
             name: "Thanon",
@@ -22,28 +24,30 @@ export const BOT = Object.freeze({
             "https://discord.com/users/1419744000977403994",
 
             telegram:
-            "https://t.me/Thanontc"
+            "tg://user?id=8533417360"
         }
+
     ]
 
 });
+
 
 
 export function getDevelopers(
     platform: "discord" | "telegram"
 ){
 
-    return BOT.developer
+    return BOT.developers
 
         .map(dev => {
 
-            const url =
+            const link =
                 platform === "discord"
                 ? dev.discord
                 : dev.telegram;
 
 
-            return `[${dev.name}](${url})`;
+            return `[${dev.name}](${link})`;
 
         })
 
@@ -55,25 +59,28 @@ export function getDevelopers(
 
 export function getUptime(){
 
-    const seconds =
+    const total =
         Math.floor(process.uptime());
 
 
     const days =
-        Math.floor(seconds / 86400);
+        Math.floor(total / 86400);
+
 
     const hours =
         Math.floor(
-            (seconds % 86400) / 3600
+            (total % 86400) / 3600
         );
+
 
     const minutes =
         Math.floor(
-            (seconds % 3600) / 60
+            (total % 3600) / 60
         );
 
-    const secs =
-        seconds % 60;
+
+    const seconds =
+        total % 60;
 
 
     return [
@@ -84,7 +91,7 @@ export function getUptime(){
 
         minutes && `${minutes}m`,
 
-        `${secs}s`
+        `${seconds}s`
 
     ]
 
