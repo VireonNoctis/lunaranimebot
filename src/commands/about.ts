@@ -68,7 +68,7 @@ ${EMOJI.right} **Prefix**
 ${EMOJI.thumbsup} **Commands Used**
 *Coming Soon*
 
-//Change to 'stats.commandsUsed.toLocaleString()' when db is done
+// Change to 'stats.commandsUsed.toLocaleString()' when db is done
 
 ${EMOJI.verify} **Gateway Ping**
 ${Math.round(client.ws.ping)}ms
