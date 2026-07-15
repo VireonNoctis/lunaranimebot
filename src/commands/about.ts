@@ -41,7 +41,7 @@ export async function aboutCommand(message){
 ${EMOJI.approved} **Version**
 \`${BOT_INFO.version}\`
 
-${EMOJI.staff} **Developers**
+${EMOJI.dev} **Developers**
 ${formatDevelopers("discord")}
 
 ${EMOJI.loading} **Uptime**
