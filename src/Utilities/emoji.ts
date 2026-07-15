@@ -14,6 +14,7 @@ export const EMOJI = Object.freeze({
   left: "<a:pointleft:1527004977933848770>",
   thumbsup: "<:thumbsup:1527004918718660798>",
   thumbdown: "<:thumbsdown:1527004837093314612>",
+  lunar: "<:Lunar:1527008583953289369>",
 } as const);
 
 export type EmojiName = keyof typeof EMOJI;
