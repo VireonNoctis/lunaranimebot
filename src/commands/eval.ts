@@ -22,110 +22,234 @@ const pages = [
 `
 ${EMOJI.new1}${EMOJI.new2} **Client**
 
-\`client\`
-\`client.user\`
-\`client.user.tag\`
-\`client.user.id\`
-\`client.ws.ping\`
-\`client.uptime\`
-\`client.readyAt\`
-\`client.shard\`
-\`client.options\`
+\`\`\`js
+client
+client.user
+client.user.tag
+client.user.id
+client.user.avatarURL()
+client.ws.ping
+client.uptime
+client.readyAt
+client.shard
+client.options
+client.application
+client.application.id
+\`\`\`
 
 ${EMOJI.new1}${EMOJI.new2} **Guild**
 
-\`message.guild.name\`
-\`message.guild.id\`
-\`message.guild.ownerId\`
-\`message.guild.memberCount\`
-\`message.guild.createdAt\`
-\`message.guild.iconURL()\`
-\`message.guild.features\`
+\`\`\`js
+message.guild.name
+message.guild.id
+message.guild.ownerId
+message.guild.memberCount
+message.guild.createdAt
+message.guild.iconURL()
+message.guild.bannerURL()
+message.guild.features
+message.guild.verificationLevel
+message.guild.premiumTier
+message.guild.premiumSubscriptionCount
+\`\`\`
 `,
 
 `
 ${EMOJI.new1}${EMOJI.new2} **User**
 
-\`message.author.tag\`
-\`message.author.id\`
-\`message.author.username\`
-\`message.author.createdAt\`
+\`\`\`js
+message.author.tag
+message.author.id
+message.author.username
+message.author.discriminator
+message.author.createdAt
+message.author.avatarURL()
+message.author.displayAvatarURL()
+\`\`\`
 
 ${EMOJI.new1}${EMOJI.new2} **Message**
 
-\`message.content\`
-\`message.id\`
-\`message.channel\`
-\`message.channel.id\`
-\`message.channel.name\`
+\`\`\`js
+message.content
+message.id
+message.channel
+message.channel.id
+message.channel.name
+message.createdAt
+message.attachments
+message.embeds
+message.mentions.users
+message.mentions.roles
+\`\`\`
 
 ${EMOJI.new1}${EMOJI.new2} **Members**
 
-\`message.guild.members.cache.size\`
-\`message.guild.members.cache.map(m => m.user.tag)\`
-\`message.guild.members.cache.filter(m => m.user.bot).size\`
+\`\`\`js
+message.guild.members.cache.size
+message.guild.members.cache.map(m => m.user.tag)
+message.guild.members.cache.filter(m => m.user.bot).size
+message.guild.members.cache.filter(m => !m.user.bot).size
+message.guild.members.cache.filter(m => m.presence)
+\`\`\`
 `,
 
 `
 ${EMOJI.new1}${EMOJI.new2} **Roles**
 
-\`message.guild.roles.cache.size\`
-\`message.guild.roles.cache.map(r => r.name)\`
-\`message.guild.roles.cache.map(r => r.id)\`
+\`\`\`js
+message.guild.roles.cache.size
+message.guild.roles.cache.map(r => r.name)
+message.guild.roles.cache.map(r => r.id)
+message.guild.roles.cache.sort((a,b)=>b.position-a.position)
+message.member.roles.cache
+message.member.permissions.toArray()
+\`\`\`
 
+${EMOJI.new1}${EMOJI.new2} **Permissions**
+
+\`\`\`js
+message.member.permissions.has("Administrator")
+message.member.permissions.has("ManageGuild")
+message.member.permissions.toArray()
+message.guild.roles.everyone.permissions.toArray()
+\`\`\`
+`,
+
+`
 ${EMOJI.new1}${EMOJI.new2} **Channels**
 
-\`message.guild.channels.cache.size\`
-\`message.guild.channels.cache.map(c => c.name)\`
-\`message.guild.channels.cache.map(c => c.type)\`
+\`\`\`js
+message.guild.channels.cache.size
+message.guild.channels.cache.map(c => c.name)
+message.guild.channels.cache.map(c => c.type)
+message.channel.topic
+message.channel.createdAt
+message.channel.parent
+\`\`\`
 
+${EMOJI.new1}${EMOJI.new2} **Threads**
+
+\`\`\`js
+message.channel.threads.cache
+message.channel.threads.cache.size
+message.channel.threads.cache.map(t => t.name)
+\`\`\`
+`,
+
+`
 ${EMOJI.new1}${EMOJI.new2} **Collections**
 
-\`client.guilds.cache.size\`
-\`client.users.cache.size\`
-\`client.channels.cache.size\`
-\`client.emojis.cache.size\`
+\`\`\`js
+client.guilds.cache.size
+client.users.cache.size
+client.channels.cache.size
+client.emojis.cache.size
+client.stickers.cache.size
+
+client.guilds.cache.map(g => g.name)
+client.guilds.cache.map(g => g.id)
+client.users.cache.map(u => u.tag)
+\`\`\`
+
+${EMOJI.new1}${EMOJI.new2} **Emojis**
+
+\`\`\`js
+client.emojis.cache.map(e => e.name)
+client.emojis.cache.map(e => e.id)
+client.emojis.cache.size
+\`\`\`
+`,
+
+`
+${EMOJI.new1}${EMOJI.new2} **Voice**
+
+\`\`\`js
+message.member.voice.channel
+message.member.voice.channelId
+message.guild.voiceStates.cache.size
+message.guild.voiceStates.cache.map(v => v.member.user.tag)
+\`\`\`
+
+${EMOJI.new1}${EMOJI.new2} **Invites**
+
+\`\`\`js
+await message.guild.invites.fetch()
+message.guild.invites.cache.size
+message.guild.invites.cache.map(i => i.code)
+\`\`\`
 `,
 
 `
 ${EMOJI.new1}${EMOJI.new2} **System**
 
-\`process.memoryUsage()\`
-\`process.cpuUsage()\`
-\`process.version\`
-\`process.platform\`
-\`process.arch\`
-\`process.pid\`
-\`process.uptime()\`
+\`\`\`js
+process.memoryUsage()
+process.memoryUsage().heapUsed
+process.memoryUsage().heapTotal
+process.cpuUsage()
+process.version
+process.platform
+process.arch
+process.pid
+process.uptime()
+\`\`\`
 
-${EMOJI.new1}${EMOJI.new2} **Utilities**
+${EMOJI.new1}${EMOJI.new2} **Time**
 
-\`BOT_INFO\`
-\`EMOJI\`
-\`getUptime()\`
-\`Object.keys(client)\`
-\`Object.keys(message)\`
-\`JSON.stringify()\`
+\`\`\`js
+Date.now()
+new Date()
+new Date().toISOString()
+\`\`\`
 `,
 
 `
+${EMOJI.new1}${EMOJI.new2} **Utilities**
+
+\`\`\`js
+BOT_INFO
+EMOJI
+getUptime()
+Object.keys(client)
+Object.keys(message)
+typeof variable
+JSON.stringify(object,null,2)
+\`\`\`
+
 ${EMOJI.new1}${EMOJI.new2} **Database**
 
-\`database\`
-\`db\`
-\`client.db\`
+\`\`\`js
+database
+db
+client.db
+database.collection()
+\`\`\`
+`,
+
+`
+${EMOJI.new1}${EMOJI.new2} **Advanced**
+
+\`\`\`js
+client.eventNames()
+client.listenerCount()
+client.listeners()
+Object.getOwnPropertyNames(client)
+Reflect.ownKeys(client)
+\`\`\`
 
 ${EMOJI.new1}${EMOJI.new2} **Examples**
 
-\`!eval client.user.tag\`
+\`\`\`js
+!eval client.user.tag
 
-\`!eval client.guilds.cache.size\`
+!eval client.guilds.cache.map(g => g.name)
 
-\`!eval process.memoryUsage()\`
+!eval message.guild.members.cache.size
 
-\`!eval message.guild.roles.cache.map(r => r.name)\`
+!eval process.memoryUsage()
 
-\`!eval client.guilds.cache.map(g => g.name)\`
+!eval message.guild.roles.cache.map(r => r.name)
+\`\`\`
 `
 ];
 
