@@ -41,7 +41,7 @@ export async function aboutCommand(message){
         )
 
         .setDescription(
-`
+
 ${EMOJI.approved} **Version**
 \`${BOT_INFO.version}\`
 
@@ -72,7 +72,7 @@ ${EMOJI.thumbsup} **Commands Used**
 
 ${EMOJI.verify} **Gateway Ping**
 ${Math.round(client.ws.ping)}ms
-`
+
         )
 
         .setFooter({
