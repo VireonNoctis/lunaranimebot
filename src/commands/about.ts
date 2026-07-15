@@ -27,13 +27,17 @@ export async function aboutCommand(message){
         );
 
 
+    const channels =
+        client.channels.cache.size;
+
+
     const embed =
         new EmbedBuilder()
 
         .setColor("#D4AF37")
 
         .setTitle(
-            `${EMOJI.moon} ${BOT_INFO.name} — About`
+            `${EMOJI.lunar} ${BOT_INFO.name} — About`
         )
 
         .setDescription(
@@ -47,11 +51,27 @@ ${formatDevelopers("discord")}
 ${EMOJI.loading} **Uptime**
 ${getUptime()}
 
+${EMOJI.new1}${EMOJI.new2} **Statistics**
+
 ${EMOJI.hammer} **Servers**
 ${client.guilds.cache.size.toLocaleString()}
 
 ${EMOJI.question} **Users**
 ${users.toLocaleString()}
+
+${EMOJI.lunar} **Channels**
+${channels.toLocaleString()}
+
+${EMOJI.right} **Prefix**
+\`${BOT_INFO.prefix}\`
+
+${EMOJI.thumbsup} **Commands Used**
+*Coming Soon*
+
+//Change to 'stats.commandsUsed.toLocaleString()' when db is done
+
+${EMOJI.verify} **Gateway Ping**
+${Math.round(client.ws.ping)}ms
 `
         )
 
