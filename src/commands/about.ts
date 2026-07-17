@@ -7,8 +7,8 @@ import {
 } from "../Utilities/emoji.js";
 
 import {
-    BOT_INFO,
-    formatDevelopers,
+    BOT,
+    getDevelopers,
     getUptime
 } from "../Utilities/about.js";
 
@@ -37,16 +37,15 @@ export async function aboutCommand(message){
         .setColor("#D4AF37")
 
         .setTitle(
-            `${EMOJI.lunar} ${BOT_INFO.name} — About`
+            `${EMOJI.lunar} ${BOT.name} — About`
         )
 
-        .setDescription(
-
+        .setDescription(`
 ${EMOJI.approved} **Version**
-\`${BOT_INFO.version}\`
+\`${BOT.version}\`
 
 ${EMOJI.dev} **Developers**
-${formatDevelopers("discord")}
+${getDevelopers("discord")}
 
 ${EMOJI.loading} **Uptime**
 ${getUptime()}
@@ -63,7 +62,7 @@ ${EMOJI.lunar} **Channels**
 ${channels.toLocaleString()}
 
 ${EMOJI.right} **Prefix**
-\`${BOT_INFO.prefix}\`
+\`/\`
 
 ${EMOJI.thumbsup} **Commands Used**
 *Coming Soon*
@@ -72,8 +71,7 @@ ${EMOJI.thumbsup} **Commands Used**
 
 ${EMOJI.verify} **Gateway Ping**
 ${Math.round(client.ws.ping)}ms
-
-        )
+        `)
 
         .setFooter({
 
@@ -85,7 +83,7 @@ ${Math.round(client.ws.ping)}ms
 
     await message.reply({
 
-        embeds:[
+        embeds: [
             embed
         ]
 
