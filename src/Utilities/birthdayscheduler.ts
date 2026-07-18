@@ -1,7 +1,7 @@
 
 
 // For index.ts add this:
-// import { startBirthdayScheduler } from "./birthdayScheduler.js";
+// import { startBirthdayScheduler } from "../utilities/birthdayScheduler.js";
 // 
 // client.once("ready", () => {
 //    startBirthdayScheduler(client);
