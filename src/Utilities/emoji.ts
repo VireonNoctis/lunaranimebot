@@ -1,3 +1,5 @@
+// import should be import { EMOJI } from "../Utilities/emoji.js";
+
 export const EMOJI = Object.freeze({
   // ─────────────────────────────
   // Moderation
