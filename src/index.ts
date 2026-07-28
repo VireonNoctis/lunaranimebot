@@ -30,15 +30,19 @@ import touch from "./commands/touch";
 import counting from "./games/counting";
 import messageToXP from "./games/messageToXP";
 import linkAccount from "./commands/accountLink";
-import { MentionHandler } from "./Utilities/mentionHandler";
+import { MentionHandler, inbox } from "./Utilities/mentionHandler";
 import dadJoke from "./commands/dadJoke";
 import randomMeme from "./commands/randomMeme";
 import purge from "./commands/purge";
 import { EMOJI } from "../Utilities/emoji";
-import { inbox } from "../Utilities/mentionhandler";
 import search from "./commands/search";
 import { BOT_INFO, formatDevelopers, getUptime }from "../Utilities/about.js";
 import { aboutCommand } from "./commands/about.js";
+import birthday from "./commands/birthday.js";
+import evalCommand from "./commands/eval.js";
+import restartCommand from "./commands/restart.js";
+import { startBirthdayScheduler } from "../utilities/birthdayScheduler.js";
+
 
 export const path = __dirname + '/../assets';
 
