@@ -73,21 +73,12 @@ client.on('clientReady', async client => {
     (client.guilds.cache.get('1330574273760465029')?.channels.cache.get('1519023423383277778') as TextChannel).send({embeds: [embed]});
 });
 
+    
 client.on('messageCreate', async message => {
     // Handless spam
-    
 
     if(message.author.bot) return;
-    if(message.channel == message.guild?.channels.cache.get('1486781635906113818')) {
-        if(message.author.id == '960946185768685618') return message.channel.send('I like you, you get to life :3');
 
-        message.channel.send({"content": `${message.author.username} got banned`});
-        message.guild.members.ban(message.author.id, { deleteMessageSeconds: 604800, reason: 'Send message into anti write, probably a bot'});
-        message.author.dmChannel?.send('You have been banned, please contact the developer if you think this is a mistake @thanongaming');
-
-        (message.guild.channels.cache.get('1499281835757404250') as TextChannel).send(message.content)
-    }
-    
     let memberInfo = (await cluster.execute(`SELECT * FROM lunarbot.users WHERE snowflakeid=${message.author.id}`)).rows[0];
 
     if(!memberInfo) {
@@ -98,7 +89,6 @@ client.on('messageCreate', async message => {
     let args :string[] = message.content.split(' ');
 
     await counting(message);
-
     if(args[0] == '!shamePoints') {
         let user = await (message.guild?.members.cache.find(user => user.user.username == args[1]))?.id;
         if(!args[1]) user = message.author.id;
