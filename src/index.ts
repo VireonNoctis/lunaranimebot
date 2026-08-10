@@ -105,19 +105,30 @@ client.on('messageCreate', async message => {
         message.channel.send(generateCode(message.author.username, 'JimmyCoolKittens'))
     }
 
-    await roleSync(message, args);
+await roleSync(message, args);
 
-    await linkAccount(message, args);
+await linkAccount(message, args);
 
-    touch(message, args);
+touch(message, args);
 
-    dadJoke(message, args);
+dadJoke(message, args);
 
-    randomMeme(message, args);
+randomMeme(message, args);
 
-    await purge(message, args);
+await purge(message, args);
 
-    //MentionHandler(message);
+await search(message, args);
+
+await aboutCommand(message, args);
+
+await birthday(message, args);
+
+evalCommand(message, args);
+
+restartCommand(message, args);
+
+ await MentionHandler(message, args);
+
 
     // Message check write system
 
