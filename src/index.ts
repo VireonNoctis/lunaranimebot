@@ -38,7 +38,7 @@ import { EMOJI } from "../Utilities/emoji";
 import search from "./commands/search";
 import { BOT_INFO, formatDevelopers, getUptime }from "../Utilities/about.js";
 import { aboutCommand } from "./commands/about.js";
-import birthday from "./commands/birthday.js";
+//import birthday from "./commands/birthday.js";
 import evalCommand from "./commands/eval.js";
 import restartCommand from "./commands/restart.js";
 import { startBirthdayScheduler } from "../utilities/birthdayScheduler.js";
@@ -124,7 +124,7 @@ await search(message, args);
 
 await aboutCommand(message, args);
 
-await birthday(message, args);
+//await birthday(message, args);
 
 evalCommand(message, args);
 
