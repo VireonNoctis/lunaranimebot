@@ -41,7 +41,7 @@ import { aboutCommand } from "./commands/about.js";
 //import birthday from "./commands/birthday.js";
 import evalCommand from "./commands/eval.js";
 import restartCommand from "./commands/restart.js";
-import { startBirthdayScheduler } from "../utilities/birthdayScheduler.js";
+//import { startBirthdayScheduler } from "../utilities/birthdayScheduler.js";
 import { server } from './api/api.ts';
 
 
