@@ -9,7 +9,7 @@ app.use(e.json());
 app.get('/api/callback/lunar', async (req, res, next) => {
     const { code } = req.query;
     try {
-        const lunar = await axios.post('https://api.lunaranime.ru/api/oauth2/token', {
+        const lunar = await axios.post('https://api.lunarx.to/api/oauth2/token', {
             "grant_type": "authorization_code",
             "code": code,
             "redirect_uri": "http://arvionmmo.com/api/callback/lunar",

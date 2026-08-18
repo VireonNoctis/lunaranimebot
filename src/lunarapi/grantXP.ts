@@ -4,7 +4,7 @@ export default async function grantXP(user :string, xp :number) {
     if(xp < 0) return;
 
     try { 
-        const xpgranted = await axios.post('https://api.lunaranime.ru/api/admin/users/give-xp', {
+        const xpgranted = await axios.post('https://api.lunarx.to/api/admin/users/give-xp', {
             'user_id': `${user}`,
             'xp': xp
         },{

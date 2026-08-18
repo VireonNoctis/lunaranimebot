@@ -215,13 +215,13 @@ setInterval(async () => {
     var pingAPI;
     
     try {
-        ping = await axios.get('https://lunaranime.ru');
+        ping = await axios.get('https://lunarx.to');
     } catch (err) {
         (client.guilds.cache.get('1330574273760465029')?.channels.cache.get('1519023423383277778') as TextChannel).send('Error fetching Website Status ' + err);
     }
 
     try {
-        pingAPI = await axios.get('https://api.lunaranime.ru');
+        pingAPI = await axios.get('https://api.lunarx.to');
     } catch (err) {
         (client.guilds.cache.get('1330574273760465029')?.channels.cache.get('1519023423383277778') as TextChannel).send('Error fetching Website Status ' + err);
     }

@@ -35,7 +35,7 @@ async function searchManga(query: string) {
     if (cached) return cached;
 
     const res = await fetch(
-        `https://api.lunaranime.ru/api/manga/search?q=${encodeURIComponent(query)}`
+        `https://api.lunarx.to/api/manga/search?q=${encodeURIComponent(query)}`
     );
 
     const data = await res.json();
@@ -50,7 +50,7 @@ async function fetchManga(slug: string) {
     if (cached) return cached;
 
     const res = await fetch(
-        `https://api.lunaranime.ru/api/manga/${slug}`
+        `https://api.lunarx.to/api/manga/${slug}`
     );
 
     const data = await res.json();
@@ -158,7 +158,7 @@ function buildInfo(manga: any, chapters: any[]) {
     return new EmbedBuilder()
         .setColor(resolveColor(manga))
         .setTitle(`🌙 ${manga.title}`)
-        .setURL(`https://lunaranime.ru/manga/${manga.slug}`)
+        .setURL(`https://lunarx.to/manga/${manga.slug}`)
         .setThumbnail(manga.cover_url)
         .setImage(manga.banner_url ?? null)
         .setDescription(manga.description?.slice(0, 350) || "No description")

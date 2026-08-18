@@ -91,7 +91,7 @@ make(
 });
 
 const account=await axios.get(
-`https://api.lunaranime.ru/api/animes/profile?user_id=${user.lunaruuid}`,
+`https://api.lunarx.to/api/animes/profile?user_id=${user.lunaruuid}`,
 {
 headers:{
 'X-Scraper-Guard-Bypass':process.env.bypass_token,

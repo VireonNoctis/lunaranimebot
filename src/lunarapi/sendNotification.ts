@@ -1,7 +1,7 @@
 import axios from "axios";
 
 export default async function sendNotification(message :string, identifier :string) {
-    await axios.post('https://api.lunaranime.ru/api/notification/admin-send', {
+    await axios.post('https://api.lunarx.to/api/notification/admin-send', {
         'user_identifier': identifier,
         'type_': 'custom',
         'content': message
