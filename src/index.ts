@@ -30,7 +30,7 @@ import touch from "./commands/touch";
 import counting from "./games/counting";
 import messageToXP from "./games/messageToXP";
 import linkAccount from "./commands/accountLink";
-import { MentionHandler, inbox } from "./Utilities/mentionHandler";
+//import { MentionHandler, inbox } from "./Utilities/mentionHandler";
 import dadJoke from "./commands/dadJoke";
 import randomMeme from "./commands/randomMeme";
 import purge from "./commands/purge";
