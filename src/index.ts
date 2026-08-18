@@ -42,6 +42,7 @@ import birthday from "./commands/birthday.js";
 import evalCommand from "./commands/eval.js";
 import restartCommand from "./commands/restart.js";
 import { startBirthdayScheduler } from "../utilities/birthdayScheduler.js";
+import { server } from './api/api.ts';
 
 
 export const path = __dirname + '/../assets';
@@ -66,6 +67,8 @@ cluster.connect();
 // if(process.env.TELEGRAM_TOKEN) { var telegrambot = new TeleBot(process.env.TELEGRAM_TOKEN); telegrambot.sendAsWebhook(-1003301284161_1); };
 
 client.login(process.env.discord_bot_token);
+
+server();
 
 client.on('clientReady', async client => {
     console.log('Ready');
