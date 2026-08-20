@@ -9,7 +9,8 @@ export default async function sendNotification(message :string, identifier :stri
         headers: {
             'X-Scraper-Guard-Bypass': `${process.env.bypass_token}`,
             'Authorization': `${process.env.lunar_token}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'union':'lnr'
         }
     });
 }
